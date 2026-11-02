@@ -213,8 +213,15 @@ HUNK_LINE_NUMBERS = re.compile(r"^@@ -\d+(?:,\d+)? \+\d+(?:,\d+)? @@", re.M)
 def own_changes(gh, ref):
     """A commit's diff against its merge base with main, file by file: a PR's own changes. Each patch is kept whole
     and in order, context included, less the line numbers in its hunk headers, so main adding or removing lines
-    elsewhere only shifts it. A file without a patch (binary, or too large to show) is compared by its blob."""
-    files = gh.api("GET", f"repos/{gh.repo}/compare/main...{ref}")["files"]
+    elsewhere only shifts it. A file without a patch (binary, or too large to show) is compared by its blob.
+    None for a commit that shares no history with main, as after a rewrite of main's history: it has no own changes
+    to compare, and one such PR mustn't stop the whole pass (#635)."""
+    try:
+        files = gh.api("GET", f"repos/{gh.repo}/compare/main...{ref}")["files"]
+    except SystemExit as e:
+        if "No common ancestor" in str(e):
+            return None
+        raise
     return {f["filename"]: (f["status"], HUNK_LINE_NUMBERS.sub("@@", f["patch"]))
             if f.get("patch") is not None else (f["status"], f.get("sha")) for f in files}
 
@@ -223,8 +230,10 @@ def same_changes(gh, approved, head):
     """True when the PR's own changes at head are what they were at the approved commit: everything since came from
     main. A merge that resolved a conflict by hand, or any commit of the PR's own, changes them (#118, #127). So
     does main editing a line next to one of them: that errs toward asking for a re-approval.
-    (Comparing commits instead fails: the commits merged in from main include other PRs' own commits.)"""
-    return own_changes(gh, approved) == own_changes(gh, head)
+    (Comparing commits instead fails: the commits merged in from main include other PRs' own commits.)
+    False when either shares no history with main."""
+    before = own_changes(gh, approved)
+    return before is not None and before == own_changes(gh, head)
 
 
 def annotate(gh, snap, runs, identity, marker):
@@ -237,7 +246,9 @@ def annotate(gh, snap, runs, identity, marker):
             r = latest_review(pr, login)
             if r and r["state"] == "APPROVED" and r["commit"] and r["commit"] != pr["head"]:
                 approved, head = own_changes(gh, r["commit"]), own_changes(gh, pr["head"])
-                pr["fresh"][login] = approved == head
+                pr["fresh"][login] = approved is not None and approved == head
+                if None in (approved, head):
+                    continue  # nothing to compare: no SR2 sign-off can carry the approval either
                 if login == second and pr["protected"] and not pr["fresh"][login]:
                     # SR2: a sign-off may carry the approval, from whoever may judge this kind of change.
                     pr["same_lines"] = own_lines(approved) == own_lines(head)
