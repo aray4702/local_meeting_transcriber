@@ -411,6 +411,28 @@ class MergePlanTest(unittest.TestCase):
         self.assertTrue(merge_rules.same_changes(gh, "D", "E"))
         self.assertFalse(merge_rules.same_changes(gh_for({"D": binary, "F": [dict(binary[0], sha="s2")]}), "D", "F"))
 
+    def test_a_commit_that_shares_no_history_with_main_is_never_fresh_and_stops_nothing(self):
+        # After main's history is rewritten, GitHub's compare answers 404 for a PR still on the old history (#635).
+        def gh_for(unrelated, error="gh: No common ancestor between main and {ref}. (HTTP 404)"):
+            gh = mock.Mock(repo="o/r")
+
+            def api(method, path, body=None, paginate=False):
+                ref = path.rsplit("...", 1)[1]
+                if ref in unrelated:
+                    raise SystemExit(f"gh api GET {path} failed: {error.format(ref=ref)}")
+                return {"files": [{"filename": "a.py", "status": "modified", "patch": "@@ -1 +1 @@\n-a\n+b"}]}
+            gh.api.side_effect = api
+            return gh
+        for unrelated in ({"h1"}, {"h2"}, {"h1", "h2"}):
+            self.assertFalse(merge_rules.same_changes(gh_for(unrelated), "h1", "h2"), unrelated)
+            old = pr(70, protected=True, reviews=[(BOT, "APPROVED", "h1"), (SECOND, "APPROVED", "h1")])
+            merge_rules.annotate(gh_for(unrelated), snap(prs=[old]), [], IDENTITY, post.MARKER)
+            self.assertEqual(old["fresh"], {BOT: False, SECOND: False}, unrelated)
+            self.assertNotIn("same_lines", old, "no SR2 sign-off can carry the approval")
+        self.assertTrue(merge_rules.same_changes(gh_for(set()), "h1", "h2"))
+        with self.assertRaises(SystemExit, msg="any other error still stops the pass"):
+            merge_rules.same_changes(gh_for({"h1"}, error="HTTP 502"), "h1", "h2")
+
     def test_auto_merge_is_turned_off_when_the_approvals_stop_covering_the_pr(self):
         stale = pr(52, merge_state="CLEAN", decision="APPROVED", auto_merge=True, reviews=[(BOT, "APPROVED", "h1")])
         stale["fresh"] = {BOT: False}
