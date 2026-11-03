@@ -7,8 +7,8 @@
   dispatch.py audit [product|system|all]   07:30, and on demand: the daily pass, and reports (audit.py)
 
 Each pass: the kill switch; runs whose launcher died; the merge queue; new runs in dispatch order
-within the caps; notices to the Owner. With --dry-run it prints what it would do and changes
-nothing. Standard library only.
+within the caps; notices to the Owner. A pass that raises tells the Owner, once a day, and exits 1.
+With --dry-run it prints what it would do and changes nothing. Standard library only.
 """
 
 import argparse
@@ -17,6 +17,7 @@ import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
@@ -440,6 +441,39 @@ def audit_pass(kinds=audit.KINDS, dry_run=False, now=None, announce=True):
     return lines, posted
 
 
+def crash_notice(command, error, now, zone):
+    """The Owner's notice for a pass that raised (#638): keyed by the day, so one a day while passes keep failing."""
+    local = now.astimezone(ZoneInfo(zone))
+    first = (str(error).strip().splitlines() or [""])[0][:300]
+    return (f"crash:{local:%Y-%m-%d}",
+            f"**The Dispatcher's {command} pass failed** at {local:%Y-%m-%d %H:%M %Z}: {type(error).__name__}: {first}\n"
+            f"Until a pass succeeds, no runs start, nothing merges, and no questions or audits reach you. "
+            f"The builder's daily run looks into it. This notice comes once a day while it lasts.")
+
+
+def report_crash(command, error, now=None):
+    """Tell the Owner that a pass raised, once a day (#638): a crashed poll can't send its own notices or escalations.
+    Never raises, so the pass's own error stays the one reported. If the state branch can't be read to see whether
+    today's notice went, only the 07:30 audit pass sends it, which is still once a day."""
+    now = now or datetime.now(timezone.utc).replace(microsecond=0)
+    try:
+        config = runner.load_all()
+        identity = config["identity"]
+        key, text = crash_notice(command, error, now, identity["time_zone"])
+        store = state.Store(runner.home(config) / "state", f"https://github.com/{identity['repo']}.git")
+        try:
+            pending = notify.unsent(store.read("notices"), [(key, text)])
+        except (Exception, SystemExit):
+            store, pending = None, [(key, text + " The state branch can't be read either.")] if command == "audit" else []
+        for key, text in pending:
+            notify.send(notify.webhook_url(identity), text)
+            if store:
+                store.append("notices", {"key": key, "at": now.isoformat()})
+        return [f"notify the Owner ({key})" for key, _ in pending]
+    except (Exception, SystemExit) as e:  # no secret named: the webhook's URL is never in these errors
+        return [f"crash notice failed: {type(e).__name__}: {e}"]
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("command", choices=["poll", "reconcile", "daily", "audit"])
@@ -447,6 +481,17 @@ def main(argv=None):
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
     stamp = datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M %Z")
+    try:
+        return run_pass(args, stamp)
+    except (Exception, SystemExit) as e:
+        # GitHub's errors are SystemExit. A dry run only prints; a pass that raised still exits 1 after the notice.
+        if not args.dry_run and not (isinstance(e, SystemExit) and e.code in (0, None)):
+            for line in report_crash(args.command, e):
+                print(f"{stamp} {args.command}: {line}", file=sys.stderr)
+        raise
+
+
+def run_pass(args, stamp):
     if args.command == "audit":
         for line in audit_pass(audit.KINDS if args.kind == "all" else (args.kind,), args.dry_run)[0]:
             print(f"{stamp} audit: {line}")
