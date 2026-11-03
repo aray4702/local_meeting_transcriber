@@ -839,5 +839,54 @@ class ReopenTest(unittest.TestCase):
         self.assertTrue(any(line.startswith("would start a developer run on #1") for line in lines), lines)
 
 
+class CrashNoticeTest(unittest.TestCase):
+    """A pass that raises tells the Owner once a day, and still exits 1 (#638)."""
+    ERROR = SystemExit("gh api GET repos/o/r/compare/main...6107119 failed: gh: No common ancestor between main and "
+                       "6107119. (HTTP 404)")
+
+    def crash(self, *argv, store=None, at=NOW):
+        store = store or FakeStore()
+        with mock.patch.object(dispatch, "dispatch_pass", side_effect=self.ERROR), \
+             mock.patch.object(dispatch, "audit_pass", side_effect=self.ERROR), \
+             mock.patch("system.dispatcher.state.Store", return_value=store), \
+             mock.patch.object(notify, "webhook_url", return_value="hook"), \
+             mock.patch.object(notify, "send") as send, \
+             mock.patch.object(dispatch, "datetime", wraps=datetime) as clock, \
+             mock.patch("sys.stderr"):
+            clock.now.return_value = at
+            with self.assertRaises(SystemExit) as raised:
+                dispatch.main(list(argv))
+        self.assertIs(raised.exception, self.ERROR, "the pass's own error, so launchd records exit 1")
+        return [c.args[1] for c in send.call_args_list], store
+
+    def test_a_crashed_pass_tells_the_owner_once_a_day(self):
+        sent, store = self.crash("poll")
+        self.assertEqual(len(sent), 1)
+        self.assertIn("The Dispatcher's poll pass failed** at 2026-10-26 20:00 PDT: SystemExit: gh api GET", sent[0])
+        self.assertIn("No common ancestor", sent[0])
+        self.assertEqual(store.appended, [("notices", {"key": "crash:2026-10-26", "at": NOW.isoformat()})])
+        self.assertEqual(self.crash("reconcile", store=store, at=NOW + timedelta(hours=1))[0], [], "the same day")
+        self.assertEqual(len(self.crash("poll", store=store, at=NOW + timedelta(days=1))[0]), 1, "the next day")
+
+    def test_with_the_state_branch_down_only_the_audit_pass_sends(self):
+        class Down(FakeStore):
+            def read(self, kind):
+                raise RuntimeError("could not fetch dispatcher/state")
+        self.assertEqual(self.crash("poll", store=Down())[0], [])
+        sent, store = self.crash("audit", store=Down())
+        self.assertEqual(len(sent), 1)
+        self.assertIn("The state branch can't be read either.", sent[0])
+        self.assertEqual(store.appended, [])
+
+    def test_a_dry_run_sends_nothing(self):
+        self.assertEqual(self.crash("poll", "--dry-run")[0], [])
+
+    def test_a_failed_notice_never_hides_the_passs_error(self):
+        with mock.patch("system.dispatcher.state.Store", FakeStore), \
+             mock.patch.object(notify, "webhook_url", side_effect=RuntimeError("no keychain item")):
+            got = dispatch.report_crash("poll", self.ERROR, NOW)
+        self.assertEqual(got, ["crash notice failed: RuntimeError: no keychain item"])
+
+
 if __name__ == "__main__":
     unittest.main()
