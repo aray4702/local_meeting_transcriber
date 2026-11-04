@@ -639,7 +639,7 @@ class TestTheAnnotationsOwnCopy:
         assert {name: (root / name).read_text() for name in WORDS} == WORDS
 
     def test_edinburghs_refusal_after_ours_is_the_error(self, cache, monkeypatch, annotations):
-        source, data = annotations
+        source, _ = annotations
         server = Refusing({}, refused=set(source.urls))
         monkeypatch.setattr(datasets.urllib.request, "urlopen", server)
         with pytest.raises(datasets.InputError, match="download failed: Forbidden") as e:
