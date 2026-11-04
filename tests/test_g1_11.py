@@ -4,6 +4,8 @@
 import json
 import os
 import re
+import subprocess
+import time
 
 import pytest
 from bad_inputs import DECODE_CASES, MUTATION_CASES, SPEECHLESS, build, run_bounded
@@ -19,13 +21,20 @@ def report(line):
 
 
 def transcribe(name, tmp_path):
-    """The input built in its own directory, and `lmt transcribe <its absolute path>` run in a fresh one."""
+    """The input built in its own directory, and `lmt transcribe <its absolute path>` run in a fresh one. The
+    report gives its wall time, and on a timeout its stderr so far, so the runner's own times are on record (#643)."""
     inputs, work = tmp_path / "inputs", tmp_path / "work"
     inputs.mkdir()
     work.mkdir()
     path = build(name, inputs).resolve()
-    r = run_bounded(["transcribe", str(path)], cwd=work)
-    report(f"G1-11: lmt transcribe {name}: exit {r.returncode}")
+    start = time.perf_counter()
+    try:
+        r = run_bounded(["transcribe", str(path)], cwd=work)
+    except subprocess.TimeoutExpired as e:
+        stderr = e.stderr.decode(errors="replace") if isinstance(e.stderr, bytes) else e.stderr
+        report(f"G1-11: lmt transcribe {name}: timed out after {e.timeout} s; stderr so far: {stderr!r}")
+        raise
+    report(f"G1-11: lmt transcribe {name}: exit {r.returncode} in {time.perf_counter() - start:.1f} s")
     return r, path, work
 
 
@@ -35,6 +44,20 @@ def assert_one_error_line(r, path, work):
     assert len(lines) == 1, r.stderr
     assert re.match(rf"lmt: error: .*{re.escape(path.name)}: \S", lines[0]), lines[0]
     assert list(work.iterdir()) == [], r.stdout
+
+
+def test_a_timeout_is_reported_with_its_stderr(tmp_path, monkeypatch):
+    summary = tmp_path / "summary.md"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
+
+    def times_out(argv, *, cwd):
+        raise subprocess.TimeoutExpired(argv, 120, stderr=b"lmt: downloading kyutai/model.safetensors\n")
+
+    monkeypatch.setitem(globals(), "run_bounded", times_out)
+    with pytest.raises(subprocess.TimeoutExpired):
+        transcribe("silence.wav", tmp_path)
+    assert summary.read_text(encoding="utf-8") == ("G1-11: lmt transcribe silence.wav: timed out after 120 s; "
+                                                   "stderr so far: 'lmt: downloading kyutai/model.safetensors\\n'\n")
 
 
 @pytest.mark.criterion("G1-11")
