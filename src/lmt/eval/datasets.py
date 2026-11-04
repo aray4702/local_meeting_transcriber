@@ -56,7 +56,7 @@ URL_PREFIXES = (
     "https://www.openslr.org/resources/12/",
     "https://us.openslr.org/resources/12/",
     "https://groups.inf.ed.ac.uk/ami/",
-    "https://github.com/aray4702/local_meeting_transcriber/releases/download/sample-data-ami/",  # the sample's own copy (#529)
+    "https://github.com/aray4702/local_meeting_transcriber/releases/download/sample-data-ami/",  # own copies (#529, #642)
     f"https://raw.githubusercontent.com/BUTSpeechFIT/AMI-diarization-setup/{BUT_COMMIT}/",
 )
 ARCHIVE_SUFFIXES = (".zip", ".tar.gz", ".tgz", ".tar")

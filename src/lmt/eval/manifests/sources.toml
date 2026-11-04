@@ -264,7 +264,10 @@ keep = true
 
 [[source]]
 id = "ami-annotations-1.6.2"
-urls = ["https://groups.inf.ed.ac.uk/ami/AMICorpusAnnotations/ami_public_manual_1.6.2.zip"]
+# As the sample meeting: this repository's copy first, Edinburgh's as the fallback, since that host refused the
+# macOS runner's eval-ci (#642). Both serve the same file, checked by the hash.
+urls = ["https://github.com/aray4702/local_meeting_transcriber/releases/download/sample-data-ami/ami_public_manual_1.6.2.zip",
+        "https://groups.inf.ed.ac.uk/ami/AMICorpusAnnotations/ami_public_manual_1.6.2.zip"]
 sha256 = "b56e5babb2496b8795deeeda7e71178d7fbc9963f94276cf2a3f4b56ebbc9f9d"
 size = 22887865
 licence = "CC-BY-4.0"

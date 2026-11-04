@@ -6,6 +6,7 @@ with soundfile and their chapter's .trans.txt, and for the AMI recipes a small W
 words.xml files and an RTTM. The tests marked `data`, at the end, read the real CI subset instead.
 """
 
+import dataclasses
 import gzip
 import hashlib
 import io
@@ -592,6 +593,72 @@ class CI:
         self.server = serve(monkeypatch, {URLS[0]: self.archive, AMI_WAV_URL: self.wav, AMI_ZIP_URL: self.zip,
                                           RTTM_URL: self.rttm})
         self.dir = dir
+
+
+class Refusing(Server):
+    """A Server whose `refused` URLs answer 403 Forbidden, as Edinburgh's host answered the macOS runner (#642)."""
+
+    def __init__(self, files, refused):
+        super().__init__(files)
+        self.refused = refused
+
+    def __call__(self, url, timeout=None):
+        if url in self.refused:
+            self.requests.append(url)
+            raise urllib.error.HTTPError(url, 403, "Forbidden", {}, None)
+        return super().__call__(url, timeout)
+
+
+class TestTheAnnotationsOwnCopy:
+    """The real manifest's annotations source, its URLs in their order, with a small zip in place of the real one."""
+
+    @pytest.fixture
+    def annotations(self):
+        source = datasets.load_manifests(datasets.MANIFEST_DIR).sources["ami-annotations-1.6.2"]
+        data = zip_of(WORDS)
+        members = tuple(datasets.Member(name, sha256(text.encode())) for name, text in WORDS.items())
+        return dataclasses.replace(source, sha256=sha256(data), size=len(data), members=members), data
+
+    def test_this_repositorys_copy_is_tried_first_and_edinburgh_isnt_asked(self, cache, monkeypatch, annotations):
+        source, data = annotations
+        own, edinburgh = source.urls
+        assert own.startswith("https://github.com/aray4702/local_meeting_transcriber/releases/download/sample-data-ami/")
+        server = serve(monkeypatch, {own: data, edinburgh: data})
+        root = datasets.fetch_source(source)
+        assert server.requests == [own]
+        assert {name: (root / name).read_text() for name in WORDS} == WORDS
+
+    def test_edinburgh_is_the_fallback_when_this_repositorys_copy_is_refused(self, cache, monkeypatch, annotations):
+        source, data = annotations
+        own, edinburgh = source.urls
+        assert edinburgh == AMI_ZIP_URL
+        server = Refusing({edinburgh: data}, refused={own})
+        monkeypatch.setattr(datasets.urllib.request, "urlopen", server)
+        root = datasets.fetch_source(source)
+        assert server.requests == [own, edinburgh]
+        assert {name: (root / name).read_text() for name in WORDS} == WORDS
+
+    def test_edinburghs_refusal_after_ours_is_the_error(self, cache, monkeypatch, annotations):
+        source, _ = annotations
+        server = Refusing({}, refused=set(source.urls))
+        monkeypatch.setattr(datasets.urllib.request, "urlopen", server)
+        with pytest.raises(datasets.InputError, match="download failed: Forbidden") as e:
+            datasets.fetch_source(source)
+        assert e.value.subject == AMI_ZIP_URL and e.value.exit_code == 3
+        assert cached_files(cache) == []
+
+    def test_the_cached_name_is_unchanged(self, cache, annotations):
+        source, _ = annotations
+        assert datasets.source_file(source).name == "ami_public_manual_1.6.2.zip"
+
+    def test_a_wrong_file_from_this_repositorys_copy_is_refused_by_the_hash(self, cache, monkeypatch, annotations):
+        source, data = annotations
+        own, edinburgh = source.urls
+        serve(monkeypatch, {own: bytes(len(data)), edinburgh: data})
+        with pytest.raises(datasets.InputError, match="SHA-256 doesn't match the manifest") as e:
+            datasets.fetch_source(source)
+        assert e.value.subject == own
+        assert cached_files(cache) == []
 
 
 class TestFetchSet:

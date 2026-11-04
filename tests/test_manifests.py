@@ -149,6 +149,14 @@ class TestAMIFull:
         assert sorted(m["path"] for m in annotations["member"]) == sorted(
             f"words/{meeting}.{speaker}.words.xml" for meeting in AMI_FULL for speaker in "ABCD")
 
+    def test_the_annotations_try_this_repositorys_copy_first(self):
+        # Edinburgh refused the macOS runner's eval-ci (#642), as it did the sample meeting (#529).
+        (annotations,) = [s for s in SOURCES["source"] if s["id"] == "ami-annotations-1.6.2"]
+        name = "ami_public_manual_1.6.2.zip"
+        assert annotations["urls"] == [
+            f"https://github.com/aray4702/local_meeting_transcriber/releases/download/sample-data-ami/{name}",
+            f"https://groups.inf.ed.ac.uk/ami/AMICorpusAnnotations/{name}"]
+
     def test_ami_ci_uses_the_list_form(self, entries):
         assert (entries["AMI-ci"]["audio"], entries["AMI-ci"]["rttm"]) == (["ami-ES2004a"], ["ami-rttm-ES2004a"])
 
