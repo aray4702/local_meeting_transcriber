@@ -1727,3 +1727,4 @@
 {"at": "2026-11-04T16:09:11+00:00", "event": "start", "item": 642, "pid": 71948, "role": "developer", "run_id": "developer-20261104T160903Z", "task": "Item #642 is sev:1: revert first (blueprint \u00a73), then fix the cause."}
 {"at": "2026-11-04T16:09:13+00:00", "event": "start", "item": null, "pid": 72023, "role": "coordinator", "run_id": "coordinator-20261104T160903Z", "task": "Triage these issues: #644."}
 {"at": "2026-11-04T16:09:15+00:00", "event": "start", "item": 636, "pid": 72072, "role": "builder", "run_id": "builder-20261104T160903Z", "task": "PR #636 needs work: its gate is red."}
+{"at": "2026-11-04T16:09:20+00:00", "event": "start", "item": 641, "pid": 72191, "role": "developer", "run_id": "developer-20261104T160904Z", "task": "Item #641 is sev:1: revert first (blueprint \u00a73), then fix the cause."}
