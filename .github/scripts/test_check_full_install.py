@@ -22,7 +22,7 @@ TOKEN = "abcdefghijklmnopqrstuv"  # 22 characters, as the demo's URL has
 # Stands in for the installed lmt. It appends its argv, cwd and environment to FAKE_LMT_LOG, and
 # FAKE_LMT_MODE (comma-separated) picks its faults.
 FAKE_LMT = f'TOKEN = "{TOKEN}"\n' + r'''
-import http.server, json, os, signal, sys, time
+import http.server, json, os, signal, socketserver, sys, time
 from pathlib import Path
 
 modes = os.environ.get("FAKE_LMT_MODE", "").split(",")
@@ -80,8 +80,13 @@ if sys.argv[1:] == ["demo", "--sample", "--no-browser"]:
     def stop(*_):  # at once: no interpreter teardown of the server's threads, which a slow runner stalls in (#573)
         os._exit(3 if "exit-3" in modes else 0)
 
+    class Server(http.server.ThreadingHTTPServer):
+        def server_bind(self):  # as the demo's (#521): no socket.getfqdn, which waits out macos-26's resolver (#648)
+            socketserver.TCPServer.server_bind(self)
+            self.server_name, self.server_port = self.server_address[:2]
+
     signal.signal(signal.SIGTERM, signal.SIG_IGN if "ignore-term" in modes else stop)
-    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    server = Server(("127.0.0.1", 0), Handler)
     print(f"http://127.0.0.1:{server.server_address[1]}/{TOKEN}/", flush=True)
     server.serve_forever()
 
@@ -234,6 +239,20 @@ class RunDemoTest(FakeTest):
         problem = self.first_sample()
         self.assertTrue(problem.startswith("<work>/models changed: "), problem)
         self.assertIn("late.bin", problem)
+
+    def test_the_fake_demo_never_looks_up_its_host_name(self):
+        # #648: HTTPServer.server_bind's socket.getfqdn waited out macos-26's resolver, past 2.4's 10 s, as the
+        # demo's own did (#521). Here the fake runs with a getfqdn that exits before the URL.
+        script = self.fake.tmp / "no-getfqdn.py"
+        script.write_text("import socket, sys\n"
+                          "socket.getfqdn = lambda *args: sys.exit('socket.getfqdn called')\n"
+                          + FAKE_LMT)
+        dirs = {name: self.fake.tmp / "run" / name for name in cfi.FRESH}
+        for d in dirs.values():
+            d.mkdir(parents=True)
+        env = cfi.command_env(self.fake.work, dirs, base=dict(os.environ, **self.fake.env))
+        cfi.run_demo([sys.executable, "-I", str(script), "demo", "--sample", "--no-browser"], env, dirs["cwd"],
+                     cfi.SECOND_URL_LIMIT)
 
 
 class DirectoriesTest(FakeTest):
