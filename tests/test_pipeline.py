@@ -219,11 +219,42 @@ def test_verbose_prints_six_stage_lines(fakes, wav, out, capsys):
     code, _, stderr = run(capsys, "transcribe", wav, "-o", out, "-v")
     assert code == 0, stderr
     lines = stderr.splitlines()
-    assert [line.split()[1] for line in lines] == ["decode", "models", "asr", "diarize", "align", "export"]
+    # ASR and diarization run side by side, and each line comes when its stage ends.
+    assert [line.split()[1] for line in lines] in (["decode", "models", "asr", "diarize", "align", "export"],
+                                                    ["decode", "models", "diarize", "asr", "align", "export"])
     for line in lines:
         prefix, _stage, seconds, unit = line.split()
         assert (prefix, unit) == ("lmt:", "s")
         assert float(seconds) >= 0
+
+
+def test_verbose_prints_each_stage_when_it_ends(fakes, wav, out, capsys, monkeypatch):
+    # Run one after the other, diarization finds the earlier stages' lines already on stderr (#643).
+    monkeypatch.setattr(pipeline, "PARALLEL", False)
+    seen = []
+
+    class Diarizer:
+        def diarize(self, audio, **options):
+            seen.append(capsys.readouterr().err)
+            return list(TURNS)
+
+    monkeypatch.setattr(diarize, "load", lambda dirs: Diarizer())
+    code, _, stderr = run(capsys, "transcribe", wav, "-o", out, "-v")
+    assert code == 0, stderr
+    assert [line.split()[1] for line in seen[0].splitlines()] == ["decode", "models", "asr"]
+    assert [line.split()[1] for line in stderr.splitlines()] == ["diarize", "align", "export"]
+
+
+def test_verbose_keeps_the_stages_before_a_failure(wav, out, capsys, monkeypatch):
+    def load(name, *, offline):
+        raise engines.ModelError(f"--engine {name}", "not in this build")
+
+    monkeypatch.setattr(engines, "load", load)
+    code, stdout, stderr = run(capsys, "transcribe", wav, "-o", out, "--engine", "apple", "-v")
+    assert (code, stdout) == (5, "")
+    lines = stderr.splitlines()
+    assert [line.split()[:2] for line in lines[:2]] == [["lmt:", "decode"], ["lmt:", "models"]]
+    assert lines[2:] == ["lmt: error: --engine apple: not in this build"]
 
 
 def test_transcribe_fills_timings(fakes, wav):

@@ -7,6 +7,7 @@ design/architecture.md, "Pipeline").
 
 import concurrent.futures
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -25,6 +26,22 @@ def _timed(timings, stage, work):
         return work()
     finally:
         timings[stage] = time.perf_counter() - start
+
+
+class _StageLog(dict):
+    """`--verbose`'s timings: each stage's line goes to stderr when the stage ends, so a run that fails or is
+    killed has already shown how far it got (#643, the Architect's decision of 2026-11-04). ASR and diarization
+    end in either order when they run side by side."""
+
+    def __init__(self):
+        super().__init__()
+        self._lock = threading.Lock()
+
+    def __setitem__(self, stage, seconds):
+        super().__setitem__(stage, seconds)
+        with self._lock:
+            sys.stderr.write(f"lmt: {stage} {seconds:.2f} s\n")
+            sys.stderr.flush()
 
 
 def _model_info(model) -> dict:
@@ -84,7 +101,7 @@ def cli_transcribe(args) -> int:
     out_dir, stem = Path(args.output_dir), Path(args.input).stem
     export.check(out_dir, stem, args.formats, overwrite=args.overwrite)
 
-    timings = {}
+    timings = _StageLog() if args.verbose else {}
     transcript = transcribe(args.input, engine=args.engine, offline=args.offline, diarize=not args.no_diarize,
                             num_speakers=args.num_speakers, min_speakers=args.min_speakers,
                             max_speakers=args.max_speakers, timings=timings)
@@ -92,8 +109,4 @@ def cli_transcribe(args) -> int:
                                                             overwrite=args.overwrite))
     for path in paths:
         print(path)
-    if args.verbose:
-        for stage in ("decode", "models", "asr", "diarize", "align", "export"):
-            if stage in timings:
-                print(f"lmt: {stage} {timings[stage]:.2f} s", file=sys.stderr)
     return 0

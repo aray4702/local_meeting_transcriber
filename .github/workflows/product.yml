@@ -196,6 +196,22 @@ jobs:
         run: |
           command -v ffmpeg || brew install ffmpeg
           ffmpeg -version | head -n 1
+      # #643's measurement (the Architect's decision, 2026-11-04): the reference clip's time by stage, with and
+      # without diarization, its wall time and peak memory, in the step summary. `-v` prints each stage's line
+      # when it ends, so a run cut off by the step's timeout still shows how far it got. It changes no check:
+      # it can't fail the job, and pytest runs after it as before.
+      - name: Stage times and peak memory on the reference clip (#643)
+        continue-on-error: true
+        timeout-minutes: 6
+        run: |
+          for extra in "" "--no-diarize"; do
+            out="$RUNNER_TEMP/diag${extra}"
+            mkdir -p "$out"
+            printf '### lmt transcribe -v --offline %s clip.wav\n\n```\n' "$extra" >> "$GITHUB_STEP_SUMMARY"
+            /usr/bin/time -l uv run --frozen lmt transcribe -v --offline $extra -o "$out" tests/fixtures/clip.wav \
+              2>&1 >/dev/null | tee -a "$GITHUB_STEP_SUMMARY"
+            printf '```\n\n' >> "$GITHUB_STEP_SUMMARY"
+          done
       # `=`: before tests/conftest.py adds the option, pytest would take a separate PATH for a test path.
       - env:
           LMT_TIER: ${{ needs.changes.outputs.tier }}
