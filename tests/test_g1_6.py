@@ -17,6 +17,8 @@ pytestmark = pytest.mark.criterion("G1-6")
 fakes, wav, out, hub = test_pipeline.fakes, test_pipeline.wav, test_pipeline.out, test_models.hub
 REAL_ENSURE = models.ensure  # Fakes replaces it; --offline's test needs the real one
 STAGES = ["decode", "models", "asr", "diarize", "align", "export"]
+# Each line comes when its stage ends (#643), and ASR and diarization run side by side.
+ORDERS = (STAGES, ["decode", "models", "diarize", "asr", "align", "export"])
 
 
 @pytest.fixture
@@ -135,7 +137,7 @@ def test_without_overwrite_an_existing_output_is_kept(fakes, wav, out, capsys):
 def test_verbose(fakes, wav, out, capsys, flag):
     code, _, stderr = run(capsys, "transcribe", wav, "-o", out, flag)
     assert code == 0, stderr
-    assert [line.split()[1] for line in stderr.splitlines()] == STAGES
+    assert [line.split()[1] for line in stderr.splitlines()] in ORDERS
 
 
 def test_without_verbose_no_stage_line(fakes, wav, out, capsys):
