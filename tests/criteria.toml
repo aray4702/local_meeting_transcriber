@@ -31,13 +31,13 @@ complete = true
 
 # G1-7: tests/test_asr.py, test_cli.py and test_manifests.py check the decode language, that the CLI has no
 # language option and the manifests' sources (design/internal/g1-stage2.md P3, #344, PR #363). All 11 checks pass on main
-# (22e951e, run 40953853258). The Reviewer read public-api.md for a language option and found none
+# (80ffa32, run 40953853258). The Reviewer read public-api.md for a language option and found none
 # (#348, 2026-10-29 14:15 PT), which is the rest of its check.
 [G1-7]
 complete = true
 
 # G1-3: tests/test_g1_3.py, the two-speaker product run, is the whole of its check (g1-stage2.md P5 and
-# its coverage table, #347, PR #376). It passes on main (9a15ca2, run 40965233774, every tier).
+# its coverage table, #347, PR #376). It passes on main (ecdd883, run 40965233774, every tier).
 [G1-3]
 complete = true
 

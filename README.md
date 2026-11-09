@@ -91,7 +91,7 @@ The product's CI jobs live in [`.github/workflows/product.yml`](.github/workflow
 
 ### Quick benchmark: GPU and Neural Engine
 
-A short run on the CI subset, about 8 minutes of audio: LS-ci, 20 LibriSpeech test-clean utterances (162 s), and AMI-ci, the first 300 s of AMI meeting ES2004a (four speakers). It ran on an Apple M4 (16 GB, macOS 27.0.1) on 2026-11-01, at commit `1eaaf1ec61a9`, with lmt 0.2.0, by `lmt eval --set ci` (Kyutai STT 1B, on the GPU) and `lmt eval --set ci --engine apple` (Apple's SpeechTranscriber, on the Neural Engine). Diarization is pyannote's `speaker-diarization-3.1` on the CPU with either engine.
+A short run on the CI subset, about 8 minutes of audio: LS-ci, 20 LibriSpeech test-clean utterances (162 s), and AMI-ci, the first 300 s of AMI meeting ES2004a (four speakers). It ran on an Apple M4 (16 GB, macOS 27.0.1) on 2026-11-01, at commit `69d1b9383023`, with lmt 0.2.0, by `lmt eval --set ci` (Kyutai STT 1B, on the GPU) and `lmt eval --set ci --engine apple` (Apple's SpeechTranscriber, on the Neural Engine). Diarization is pyannote's `speaker-diarization-3.1` on the CPU with either engine.
 
 | Set | System | WER, GPU | WER, NPU | DER, GPU | DER, NPU | RTF, GPU | RTF, NPU |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |

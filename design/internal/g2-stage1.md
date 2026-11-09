@@ -125,7 +125,7 @@ So the provisional U is **0.8 s** (12,800 samples, eight blocks). It leaves marg
 
 ## What G1's stage 2 gives (on `main`)
 
-G1's stage 2 has merged decode, ASR, diarization with P12's turns-first segments, alignment, the exporters, the schema at 1.1 and `transcript.load` (`g1-slice.md`, `g1-stage2.md`). Checked on `main` at 87bc0af (2026-10-29), these are the interfaces G2's items call, and where each differs from what this file first assumed:
+G1's stage 2 has merged decode, ASR, diarization with P12's turns-first segments, alignment, the exporters, the schema at 1.1 and `transcript.load` (`g1-slice.md`, `g1-stage2.md`). Checked on `main` at a34b9f8 (2026-10-29), these are the interfaces G2's items call, and where each differs from what this file first assumed:
 
 | Interface | Used by | On `main` | For G2 |
 | --- | --- | --- | --- |

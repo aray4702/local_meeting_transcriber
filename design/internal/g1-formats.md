@@ -85,7 +85,7 @@ def encode(fixture: Fixture, fmt: str, out: Path) -> None   # one command, subpr
   complete = true
   ```
 
-  `.github/scripts/test_criteria.py`'s `RealSpecTest.test_real_registry_loads` lists the complete criteria, so E1 adds `G1-2` to that set, as S6 added `G1-1` (008dd1c).
+  `.github/scripts/test_criteria.py`'s `RealSpecTest.test_real_registry_loads` lists the complete criteria, so E1 adds `G1-2` to that set, as S6 added `G1-1` (3ba2f1a).
 
 ## CI
 

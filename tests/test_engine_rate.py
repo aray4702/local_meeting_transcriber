@@ -1,4 +1,4 @@
-"""Batch mode's audio at the engine's own rate (#575, 60447be; #601 item 2): the pipeline decodes the file again at
+"""Batch mode's audio at the engine's own rate (#575, 62b38dd; #601 item 2): the pipeline decodes the file again at
 `Engine.rate` and passes `rate=`; an engine at the default 16 kHz gets decode's samples and no keyword; and
 `audio.decode(path, rate)` gives the same signal as resampling."""
 
