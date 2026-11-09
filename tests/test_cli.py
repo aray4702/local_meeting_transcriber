@@ -89,7 +89,7 @@ class HelpAndVersionTest(unittest.TestCase):
     @pytest.mark.criterion("G1-6")
     def test_version(self):
         code, out, _ = run("--version")
-        self.assertEqual((code, out), (0, "lmt 0.2.0\n"))
+        self.assertEqual((code, out), (0, "lmt 0.3.0\n"))
 
 
 @pytest.mark.criterion("G1-6")

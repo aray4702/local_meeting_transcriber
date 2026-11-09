@@ -11,7 +11,7 @@
     "memory_bytes": 17179869184,
     "os": "macOS 27.0"
   },
-  "lmt_version": "0.2.0",
+  "lmt_version": "0.3.0",
   "models": {
     "asr": {
       "name": "distil-large-v3",

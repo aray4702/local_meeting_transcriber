@@ -1,6 +1,6 @@
 [project]
 name = "local-meeting-transcriber"
-version = "0.2.0"
+version = "0.3.0"
 description = "Offline, speaker-labelled meeting transcription that runs entirely on your Mac."
 readme = "README.md"
 license = "MIT"
