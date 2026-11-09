@@ -264,7 +264,10 @@ keep = true
 
 [[source]]
 id = "ami-annotations-1.6.2"
-urls = ["https://groups.inf.ed.ac.uk/ami/AMICorpusAnnotations/ami_public_manual_1.6.2.zip"]
+# This repository's copy first, Edinburgh's as the fallback: Edinburgh has answered GitHub's runners with 403 Forbidden
+# (main's eval-ci, 2026-11-01), as it refused them for the sample meeting (#529). Both serve the same file, checked by the hash.
+urls = ["https://github.com/aray4702/local_meeting_transcriber/releases/download/sample-data-ami/ami_public_manual_1.6.2.zip",
+        "https://groups.inf.ed.ac.uk/ami/AMICorpusAnnotations/ami_public_manual_1.6.2.zip"]
 sha256 = "b56e5babb2496b8795deeeda7e71178d7fbc9963f94276cf2a3f4b56ebbc9f9d"
 size = 22887865
 licence = "CC-BY-4.0"
