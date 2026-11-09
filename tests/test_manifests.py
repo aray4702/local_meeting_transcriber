@@ -144,6 +144,12 @@ class TestAMIFull:
             assert sources[f"ami-rttm-{meeting}"]["urls"] == [
                 f"{URL_PREFIXES[-1]}only_words/rttms/test/{meeting}.rttm"]
 
+    def test_the_annotations_try_this_repositorys_copy_first(self):
+        (annotations,) = [s for s in SOURCES["source"] if s["id"] == "ami-annotations-1.6.2"]
+        assert annotations["urls"] == [
+            "https://github.com/aray4702/local_meeting_transcriber/releases/download/sample-data-ami/ami_public_manual_1.6.2.zip",
+            "https://groups.inf.ed.ac.uk/ami/AMICorpusAnnotations/ami_public_manual_1.6.2.zip"]
+
     def test_the_annotations_have_each_meetings_four_words_files(self):
         (annotations,) = [s for s in SOURCES["source"] if s["id"] == "ami-annotations-1.6.2"]
         assert sorted(m["path"] for m in annotations["member"]) == sorted(
