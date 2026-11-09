@@ -1,6 +1,6 @@
 {
   "schema_version": "1.2",
-  "lmt_version": "0.2.0",
+  "lmt_version": "0.3.0",
   "source": {
     "file": "two_speakers.wav",
     "duration": 66.81
