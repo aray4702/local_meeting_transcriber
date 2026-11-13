@@ -1,6 +1,7 @@
 """Tests for the Owner's CLI and dashboard. Nothing here touches GitHub."""
 
 import fcntl
+import socketserver
 import tempfile
 import threading
 import tomllib
@@ -237,8 +238,13 @@ class DashboardServerTest(unittest.TestCase):
         servers = []
         real = arsys.http.server.ThreadingHTTPServer
 
+        class Server(real):
+            def server_bind(self):  # no socket.getfqdn, which waits out macos-26's resolver (#648)
+                socketserver.TCPServer.server_bind(self)
+                self.server_name, self.server_port = self.server_address[:2]
+
         def capture(addr, handler):
-            server = real(("127.0.0.1", 0), handler)
+            server = Server(("127.0.0.1", 0), handler)
             servers.append((addr, server))
             started.set()
             return server
@@ -250,7 +256,7 @@ class DashboardServerTest(unittest.TestCase):
              mock.patch("builtins.print"):
             t = threading.Thread(target=arsys.serve, args=({}, 8765), daemon=True)
             t.start()
-            started.wait(5)
+            self.assertTrue(started.wait(30), "the dashboard's server didn't start")
             (addr, server), = servers
             self.assertEqual(addr, ("127.0.0.1", 8765), "the dashboard must bind to this Mac only")
             base = f"http://127.0.0.1:{server.server_address[1]}"

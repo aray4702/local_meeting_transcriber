@@ -85,7 +85,7 @@ The gate ([`.github/workflows/gate.yml`](.github/workflows/gate.yml)) is the one
 python3 -I system/gate/generic.py --base origin/main
 ```
 
-The product's CI jobs live in [`.github/workflows/product.yml`](.github/workflows/product.yml), which the gate calls. Among them, the `readme` job checks this file against its criteria in [`spec/acceptance.md`](spec/acceptance.md), and the `test` job runs the product's tests, which you can run with `uv run --frozen pytest`. The `eval-ci` job runs the evaluation on the CI subset twice, with `uv run --frozen lmt eval --set ci`, which downloads and caches the subset and writes `results/ci.json`; it checks that the two runs give identical accuracy figures and that the figures meet the accuracy bounds.
+The product's CI jobs live in [`.github/workflows/product.yml`](.github/workflows/product.yml), which the gate calls. Among them, the `readme` job checks this file against its criteria in [`spec/acceptance.md`](spec/acceptance.md), and the `test` job runs the product's tests, which you can run with `uv run --frozen pytest`. The `eval-ci` job runs the evaluation on the CI subset twice, with `uv run --frozen lmt eval --set ci`, which downloads and caches the subset and writes `results/ci.json`; it checks that the two runs give identical accuracy figures and that the figures meet the accuracy bounds. The tests that run the models on short clips, the `test-models` job, run by hand only: GitHub's macOS runners have no usable GPU, so they take about an hour there, against about 2 minutes on a Mac with the models downloaded, where you run them with `uv run --frozen pytest -m models`.
 
 ## Results
 
